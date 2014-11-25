@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.poi.hdf.extractor.WordDocument;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -20,31 +21,53 @@ import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 public class WordHandle {
 	
 	/**
-	 * 生成新文件路径
-	 * @param originalFilename
-	 * @return
-	 */
-	public String generateNewFilename(String originalFilename) {
-		Date date = new Date();
-		int dotIndex = originalFilename.lastIndexOf(".");
-		String extName = originalFilename.substring(dotIndex + 1);
-		String pathWithoutExt = originalFilename.substring(0, dotIndex);
-		String formatDateStr = String.format("%tY%tm%td%tH%tM%tS%tz%tZ", date, date, date, date, date, date, date, date);
-		return pathWithoutExt + "_" + formatDateStr + "." + extName;
-	}
-	
-	/**
-	 * 获取配置属性
-	 * @param key
-	 * @return
+	 * main
+	 * @param args
+	 * @throws FileNotFoundException
 	 * @throws IOException
 	 */
-	public String getProperty(String key) throws IOException {
-		Properties prop = new Properties();
-		InputStream inputStream = WordHandle.class.getClassLoader().getResourceAsStream("config.properties");
-		prop.load(inputStream);
-		inputStream.close();
-		return prop.getProperty(key);
+	public static void main(String[] args) throws FileNotFoundException, IOException {
+		WordHandle wh = new WordHandle();
+		List<Integer> sections = new ArrayList<Integer>();
+		sections.add(1);
+		sections.add(3);
+		sections.add(11);
+		sections.add(12);
+		
+		wh.cutDocument("f:/13_12030084.docx", sections);
+		
+//		wh.test();
+	}
+	
+	public void test() throws FileNotFoundException, IOException {
+		XWPFDocument wordoc = new XWPFDocument(new FileInputStream(new File("f:/13_12030084.docx")));
+		
+		XWPFTable table = wordoc.getTables().get(0);
+		
+		XWPFTableRow row = table.getRow(0);
+		
+		List<XWPFTableCell> cells = row.getTableCells();
+		
+		System.out.println(cells.size());
+		
+		row.removeCell(5);
+		
+		table.addRow(row, 0);
+		
+		table.removeRow(1);
+		
+		System.out.println(row.getTableCells().size());
+		
+//		System.out.println(row.getCell(0).getText());
+//		System.out.println(row.getCell(1).getText());
+//		System.out.println(row.getCell(2).getText());
+//		System.out.println(row.getCell(3).getText());
+//		System.out.println(row.getCell(4).getText());
+//		System.out.println(row.getCell(5).getText());
+		
+		
+		wordoc.write(new FileOutputStream(new File("f:/13_12030084_test.docx")));
+		
 	}
 	
 	/**
@@ -155,19 +178,30 @@ public class WordHandle {
 	}
 	
 	/**
-	 * main
-	 * @param args
-	 * @throws FileNotFoundException
+	 * 生成新文件路径
+	 * @param originalFilename
+	 * @return
+	 */
+	public String generateNewFilename(String originalFilename) {
+		Date date = new Date();
+		int dotIndex = originalFilename.lastIndexOf(".");
+		String extName = originalFilename.substring(dotIndex + 1);
+		String pathWithoutExt = originalFilename.substring(0, dotIndex);
+		String formatDateStr = String.format("%tY%tm%td%tH%tM%tS%tz%tZ", date, date, date, date, date, date, date, date);
+		return pathWithoutExt + "_" + formatDateStr + "." + extName;
+	}
+	
+	/**
+	 * 获取配置属性
+	 * @param key
+	 * @return
 	 * @throws IOException
 	 */
-	public static void main(String[] args) throws FileNotFoundException, IOException {
-		WordHandle wh = new WordHandle();
-		List<Integer> sections = new ArrayList<Integer>();
-		sections.add(1);
-		sections.add(3);
-		sections.add(11);
-		sections.add(12);
-		
-		wh.cutDocument("f:/13_12030084.docx", sections);
+	public String getProperty(String key) throws IOException {
+		Properties prop = new Properties();
+		InputStream inputStream = WordHandle.class.getClassLoader().getResourceAsStream("config.properties");
+		prop.load(inputStream);
+		inputStream.close();
+		return prop.getProperty(key);
 	}
 }
