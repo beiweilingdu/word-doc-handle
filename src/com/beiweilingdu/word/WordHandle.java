@@ -1,16 +1,21 @@
 package com.beiweilingdu.word;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
@@ -18,6 +23,8 @@ import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 
 public class WordHandle {
+	
+	private static final String USER_DIR = System.getProperty("user.dir");
 	
 	/**
 	 * main
@@ -35,7 +42,8 @@ public class WordHandle {
 //		
 //		wh.cutDocument("f:/13_12030084.docx", sections);
 		
-		wh.scanIllegalWord("F:\\file_cpsc");
+//		wh.scanIllegalWord("G:\\user\\wuxiaolin\\项目开发\\mspm\\产品手册文档示例\\产品资料--正式文件20141204(测试用)");
+		wh.scanIllegalWord(args[0]);
 	}
 	
 	/**
@@ -45,6 +53,7 @@ public class WordHandle {
 	 * @throws IOException 
 	 */
 	public synchronized void scanIllegalWord(String dir) throws IOException {
+		
 		/**
 		 * 1、判断dir路径是否有效
 		 * 2、递归扫描dir下所有文件，遇到.doc文件，就直接记录为不规范文档。并把.docx文件的绝对路径保存到一个List<String>中，等着下一步进行文档内容的扫描
@@ -63,33 +72,64 @@ public class WordHandle {
 		}
 		
 		// 递归扫描路径下所有文件
-		List<String> fileList = this.scanAllFile(dir);
+		List<String> result = new ArrayList<String>();
+		this.scanAllFile(dir, result);
 		
 		// 判断内容是否规范
 		List<String> keywords = this.getKeywordList();
-		if(fileList != null) {
-			for(String filepath : fileList) {
+		if(result != null) {
+			
+			File outfile = new File(USER_DIR + "/"+UUID.randomUUID()+".txt");
+//			if(!outfile.exists()) {
+//				outfile.mkdirs();
+				outfile.createNewFile();
+//			}
+			BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outfile),"utf-8"));
+			for(String filepath : result) {
 				if(filepath.endsWith(".docx")) {
 					File file = new File(filepath);
 					if(file.exists()) {
 						List<String> lostKeyword = new ArrayList<String>();
+						Map<String, String> err = new HashMap<String, String>();
 						XWPFDocument wordoc = new XWPFDocument(new FileInputStream(file));
-						if(!this.isLegalWord(wordoc, keywords, lostKeyword)) {
+						if(!this.isLegalWord(wordoc, keywords, lostKeyword, err)) {
 							// TODO 记录文档内容不规范
-							System.out.println("================ " + filepath + " -> 文档内容缺失 ===================");
-							for(String lostkey : lostKeyword) {
-								System.out.println(lostkey);
+							System.out.println("=========================================================");
+							bw.write("=========================================================\r\n");
+							bw.write(">文件路径：" + filepath + "\r\n");
+							System.out.println(">文件路径：" + filepath);
+							if(err.get("error") != null && err.get("error") != "") {
+								bw.write(">格式错误：" + err.get("error") + "\r\n");
+								System.out.println(">格式错误：" + err.get("error"));
+							}
+							
+							if(lostKeyword.size() > 0) {
+								bw.write(">缺失标签：\r\n");
+								System.out.println(">缺失标签：");
+								for(String lostkey : lostKeyword) {
+									bw.write("\t" + lostkey + "\r\n");
+									System.out.println("\t" + lostkey);
+								}
 							}
 						} else {
 							// TODO 规范的文档
-							System.out.println("================ " + filepath + " -> 通过 ===============");
+//							System.out.println("================ " + filepath + " -> 通过 ===============");
 						}
 					}
 				} else if(filepath.endsWith(".doc")) {
 					// TODO 记录文档版本不规范
-					System.out.println("================ " + filepath + " -> word文档版本不是2007及以上版本 ===============");
+					bw.write("=========================================================\r\n");
+					System.out.println("=========================================================");
+					bw.write(">文件路径：" + filepath + "\r\n");
+					System.out.println(">文件路径：" + filepath);
+					bw.write(">版本错误：word文档版本不是2007及以上版本\r\n");
+					System.out.println(">版本错误：word文档版本不是2007及以上版本");
 				}
 			}
+			bw.write("=========================================================");
+			bw.close();
+			System.out.println("=========================================================");
+			System.out.println(">检测结果已经保存到["+outfile.getAbsolutePath()+"]");
 		}
 	}
 	
@@ -100,10 +140,16 @@ public class WordHandle {
 	 * @param lostKeyword 丢失的关键字列表
 	 * @return
 	 */
-	public Boolean isLegalWord(XWPFDocument wordoc, List<String> keywords, List<String> lostKeyword) {
+	public Boolean isLegalWord(XWPFDocument wordoc, List<String> keywords, List<String> lostKeyword, Map<String, String> err) {
+		
+		List<XWPFTable> tables = wordoc.getTables();
+		if(tables == null || tables.size() > 1) {
+			err.put("error", "存在多个表格");
+			return false;
+		}
 		
 		// 读取文档表格
-		XWPFTable table = wordoc.getTables().get(0);
+		XWPFTable table = tables.get(0);
 		
 		// 读取表格的行
 		List<XWPFTableRow> rows = table.getRows();
@@ -141,8 +187,7 @@ public class WordHandle {
 	 * @param dir
 	 * @return
 	 */
-	public List<String> scanAllFile(String dir) {
-		List<String> result = new ArrayList<String>();
+	public List<String> scanAllFile(String dir, List<String> result) {
 		// 参数校验
 		if(dir == null || dir == "") {
 			log("参数为空，请检查！");
@@ -161,7 +206,7 @@ public class WordHandle {
 			if(file.isFile()) {
 				result.add(file.getAbsolutePath());
 			} else {
-				scanAllFile(file.getAbsolutePath());
+				scanAllFile(file.getAbsolutePath(), result);
 			}
 		}
 		return result;
