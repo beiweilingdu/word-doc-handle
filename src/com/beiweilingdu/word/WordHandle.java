@@ -12,7 +12,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.poi.hdf.extractor.WordDocument;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -28,46 +27,144 @@ public class WordHandle {
 	 */
 	public static void main(String[] args) throws FileNotFoundException, IOException {
 		WordHandle wh = new WordHandle();
-		List<Integer> sections = new ArrayList<Integer>();
-		sections.add(1);
-		sections.add(3);
-		sections.add(11);
-		sections.add(12);
+//		List<Integer> sections = new ArrayList<Integer>();
+//		sections.add(1);
+//		sections.add(3);
+//		sections.add(11);
+//		sections.add(12);
+//		
+//		wh.cutDocument("f:/13_12030084.docx", sections);
 		
-		wh.cutDocument("f:/13_12030084.docx", sections);
-		
-//		wh.test();
+		wh.scanIllegalWord("F:\\file_cpsc");
 	}
 	
-	public void test() throws FileNotFoundException, IOException {
-		XWPFDocument wordoc = new XWPFDocument(new FileInputStream(new File("f:/13_12030084.docx")));
+	/**
+	 * 扫描某路径下所有不规范的word文档，包括word版本、内容段落不全等。
+	 * 扫描的结果保存到txt文件中，内容是不规范文档的绝对路径和文件名
+	 * @param dir
+	 * @throws IOException 
+	 */
+	public synchronized void scanIllegalWord(String dir) throws IOException {
+		/**
+		 * 1、判断dir路径是否有效
+		 * 2、递归扫描dir下所有文件，遇到.doc文件，就直接记录为不规范文档。并把.docx文件的绝对路径保存到一个List<String>中，等着下一步进行文档内容的扫描
+		 * 3、循环处理每一个.docx文档，判断其内容是否规范
+		 */
+		// 参数校验
+		if(dir == null || dir == "") {
+			log("参数为空，请检查！");
+			return;
+		}
+		// 路径校验
+		File dirFile = new File(dir);
+		if(!dirFile.exists()) {
+			log("扫描路径不存在，请检查！");
+			return;
+		}
 		
+		// 递归扫描路径下所有文件
+		List<String> fileList = this.scanAllFile(dir);
+		
+		// 判断内容是否规范
+		List<String> keywords = this.getKeywordList();
+		if(fileList != null) {
+			for(String filepath : fileList) {
+				if(filepath.endsWith(".docx")) {
+					File file = new File(filepath);
+					if(file.exists()) {
+						List<String> lostKeyword = new ArrayList<String>();
+						XWPFDocument wordoc = new XWPFDocument(new FileInputStream(file));
+						if(!this.isLegalWord(wordoc, keywords, lostKeyword)) {
+							// TODO 记录文档内容不规范
+							System.out.println("================ " + filepath + " -> 文档内容缺失 ===================");
+							for(String lostkey : lostKeyword) {
+								System.out.println(lostkey);
+							}
+						} else {
+							// TODO 规范的文档
+							System.out.println("================ " + filepath + " -> 通过 ===============");
+						}
+					}
+				} else if(filepath.endsWith(".doc")) {
+					// TODO 记录文档版本不规范
+					System.out.println("================ " + filepath + " -> word文档版本不是2007及以上版本 ===============");
+				}
+			}
+		}
+	}
+	
+	/**
+	 * 判断文档内容是否规范
+	 * @param wordoc word文档
+	 * @param keywords 关键字列表
+	 * @param lostKeyword 丢失的关键字列表
+	 * @return
+	 */
+	public Boolean isLegalWord(XWPFDocument wordoc, List<String> keywords, List<String> lostKeyword) {
+		
+		// 读取文档表格
 		XWPFTable table = wordoc.getTables().get(0);
 		
-		XWPFTableRow row = table.getRow(0);
+		// 读取表格的行
+		List<XWPFTableRow> rows = table.getRows();
 		
-		List<XWPFTableCell> cells = row.getTableCells();
+		boolean isOK = true;
 		
-		System.out.println(cells.size());
+		for(String keyword : keywords) {
+			boolean ok = false;
+			// 遍历行
+			for(XWPFTableRow row : rows) {
+				// 某行第一个单元格
+				XWPFTableCell cell = row.getCell(0);
+				
+				// 单元格内容
+				String cellText = cell.getText();
+				
+				if(cellText != null && cellText.contains(keyword)) {
+					// 当前关键字存在，继续下一个关键字的扫描
+					ok = true;
+					break;
+				}
+			}
+			// 某一个关键字不存在，那么整个文档就是不OK的
+			if(!ok) {
+				lostKeyword.add(keyword);
+				isOK = false;
+			}
+		}
 		
-		row.removeCell(5);
+		return isOK;
+	}
+	
+	/**
+	 * 递归扫描路径下所有文件
+	 * @param dir
+	 * @return
+	 */
+	public List<String> scanAllFile(String dir) {
+		List<String> result = new ArrayList<String>();
+		// 参数校验
+		if(dir == null || dir == "") {
+			log("参数为空，请检查！");
+			return null;
+		}
+		// 路径校验
+		File dirFile = new File(dir);
+		if(!dirFile.exists()) {
+			log("扫描路径不存在，请检查！");
+			return null;
+		}
 		
-		table.addRow(row, 0);
+		File[] fileList = dirFile.listFiles();
 		
-		table.removeRow(1);
-		
-		System.out.println(row.getTableCells().size());
-		
-//		System.out.println(row.getCell(0).getText());
-//		System.out.println(row.getCell(1).getText());
-//		System.out.println(row.getCell(2).getText());
-//		System.out.println(row.getCell(3).getText());
-//		System.out.println(row.getCell(4).getText());
-//		System.out.println(row.getCell(5).getText());
-		
-		
-		wordoc.write(new FileOutputStream(new File("f:/13_12030084_test.docx")));
-		
+		for(File file : fileList) {
+			if(file.isFile()) {
+				result.add(file.getAbsolutePath());
+			} else {
+				scanAllFile(file.getAbsolutePath());
+			}
+		}
+		return result;
 	}
 	
 	/**
@@ -203,5 +300,14 @@ public class WordHandle {
 		prop.load(inputStream);
 		inputStream.close();
 		return prop.getProperty(key);
+	}	
+	
+	/**
+	 * 简单日志打印
+	 * @param message
+	 */
+	public void log(String message) {
+		System.out.println("["+(new Date())+"]" + message);
 	}
+
 }
