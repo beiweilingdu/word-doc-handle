@@ -79,12 +79,16 @@ public class WordHandle {
 		List<String> keywords = this.getKeywordList();
 		if(result != null) {
 			
-			File outfile = new File(USER_DIR + "/"+UUID.randomUUID()+".txt");
+			File outfile = new File(USER_DIR + "/驳回_"+UUID.randomUUID()+".txt");
+			File legalFile = new File(USER_DIR + "/通过_"+UUID.randomUUID()+".txt");
 //			if(!outfile.exists()) {
 //				outfile.mkdirs();
 				outfile.createNewFile();
+				legalFile.createNewFile();
 //			}
 			BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outfile),"utf-8"));
+			BufferedWriter lbw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(legalFile),"utf-8"));
+			int passCount = 1, rejectedCount = 1;
 			for(String filepath : result) {
 				if(filepath.endsWith(".docx")) {
 					File file = new File(filepath);
@@ -95,7 +99,7 @@ public class WordHandle {
 						if(!this.isLegalWord(wordoc, keywords, lostKeyword, err)) {
 							// TODO 记录文档内容不规范
 							System.out.println("=========================================================");
-							bw.write("=========================================================\r\n");
+							bw.write(rejectedCount + " =========================================================\r\n");
 							bw.write(">文件路径：" + filepath + "\r\n");
 							System.out.println(">文件路径：" + filepath);
 							if(err.get("error") != null && err.get("error") != "") {
@@ -111,25 +115,32 @@ public class WordHandle {
 									System.out.println("\t" + lostkey);
 								}
 							}
+							rejectedCount++;
 						} else {
 							// TODO 规范的文档
 //							System.out.println("================ " + filepath + " -> 通过 ===============");
+							lbw.write(passCount + "\t" + filepath + "\r\n");
+							passCount++;
 						}
 					}
 				} else if(filepath.endsWith(".doc")) {
 					// TODO 记录文档版本不规范
-					bw.write("=========================================================\r\n");
+					bw.write(rejectedCount + " =========================================================\r\n");
 					System.out.println("=========================================================");
 					bw.write(">文件路径：" + filepath + "\r\n");
 					System.out.println(">文件路径：" + filepath);
 					bw.write(">版本错误：word文档版本不是2007及以上版本\r\n");
 					System.out.println(">版本错误：word文档版本不是2007及以上版本");
+					rejectedCount++;
 				}
 			}
 			bw.write("=========================================================");
+			lbw.write("=========================================================");
 			bw.close();
+			lbw.close();
 			System.out.println("=========================================================");
-			System.out.println(">检测结果已经保存到["+outfile.getAbsolutePath()+"]");
+			System.out.println(">驳回结果已经保存到["+outfile.getAbsolutePath()+"]");
+			System.out.println(">通过结果已经保存到["+legalFile.getAbsolutePath()+"]");
 		}
 	}
 	
